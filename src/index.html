@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soroban diário</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+:root{color-scheme:dark;--bg:#323437;--alt:#2c2e31;--main:#e2b714;--sub:#646669;--text:#d1d0c5;--err:#ca4754;--font:'Roboto Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 var(--font);overflow-x:clip}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;border-radius:6px}
+button:focus-visible,.today:focus-visible{outline:2px solid var(--main);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto auto 1fr auto;gap:18px;padding:24px max(4vw,16px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;color:var(--text);font-size:28px;font-weight:700;letter-spacing:-.5px}
+.logo svg{width:34px;height:34px}
+.logo small{display:block;font-size:11px;font-weight:400;color:var(--sub);letter-spacing:0;margin-top:-6px}
+.today{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:13px;padding:8px 10px;min-height:40px}
+.today b{color:var(--text);font-weight:500}
+.meter{width:70px;height:6px;border-radius:3px;background:var(--alt);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--main);width:0;transition:width .3s}
+nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;background:var(--alt);border-radius:8px;padding:4px 10px;font-size:13px;justify-self:center;max-width:100%}
+.g{display:flex;align-items:center;flex-wrap:wrap}
+.g button{color:var(--sub);padding:6px 7px;min-height:40px;transition:color .12s}
+.g button:hover{color:var(--text)}
+.g button.on{color:var(--main)}
+.g .lb{color:var(--sub);opacity:.7;padding:0 4px 0 2px}
+.g svg{width:14px;height:14px;vertical-align:-2px;margin-right:5px;fill:currentColor}
+.sep{width:4px;height:20px;border-radius:2px;background:var(--bg);margin:0 4px}
+[hidden]{display:none!important}
+body.typing header,body.typing nav,body.typing footer .keys{opacity:0;pointer-events:none}
+header,nav,footer .keys{transition:opacity .25s}
+main{display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative}
+#test{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+#live{align-self:flex-start;display:flex;gap:18px;align-items:baseline;min-height:42px;color:var(--main);font-size:28px}
+#live span{font-size:14px;color:var(--sub)}
+#stage{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;cursor:text;padding:8px 0;border-radius:10px}
+#stage.blur>*:not(.focus){filter:blur(5px);opacity:.5}
+.focus{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--text);font-size:15px;z-index:2;text-align:center;padding:16px}
+#stage.blur .focus{display:flex}
+#prob{font-size:clamp(38px,8vw,76px);line-height:1.1;color:var(--text);text-align:center;font-weight:500;letter-spacing:1px;overflow-wrap:anywhere}
+#prob .op{color:var(--sub)}
+#ans{font-size:clamp(38px,8vw,76px);line-height:1.15;color:var(--main);min-height:1.2em;display:flex;align-items:center;gap:2px;font-weight:500}
+#ans .eq{color:var(--sub);margin-right:.35em}
+#ans.bad{color:var(--err)}
+#ans s{color:var(--err);opacity:.7;margin-right:.4em;font-size:.6em}
+#ans .fix{color:var(--err)}
+.caret{display:inline-block;width:3px;height:.9em;background:var(--main);border-radius:2px;animation:blink 1s step-end infinite}
+#ans.ok{animation:pop .2s}
+@keyframes blink{50%{opacity:0}}
+@keyframes pop{50%{transform:scale(1.06)}}
+#next{color:var(--sub);font-size:18px;min-height:28px;text-align:center;opacity:.75;white-space:pre-wrap}
+#abaco{width:min(380px,92%);margin-top:14px}
+#abaco svg{width:100%;height:auto;display:block}
+.bd{fill:var(--sub);opacity:.55;transition:transform .18s ease,fill .18s,opacity .18s}
+.bd.on{fill:var(--main);opacity:1}
+#inp{position:absolute;opacity:0;width:1px;height:1px;left:50%;top:40%;font-size:16px;border:0;padding:0}
+#restart{margin-top:14px;color:var(--sub);padding:10px 14px;min-height:44px}
+#restart:hover{color:var(--text)}
+#restart svg{width:18px;height:18px;fill:currentColor}
+footer{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;color:var(--sub)}
+.keys{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px}
+kbd{font:inherit;font-size:11px;background:var(--sub);color:var(--bg);border-radius:3px;padding:1px 5px}
+#mic{display:flex;align-items:center;gap:8px;background:var(--alt);border-radius:20px;padding:6px 14px;font-size:13px;color:var(--text);max-width:100%}
+#mic .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:none;animation:pulse 1.4s ease-in-out infinite}
+#micTxt{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes pulse{50%{opacity:.25}}
+details{max-width:640px;text-align:center}
+summary{cursor:pointer;padding:6px}
+summary:hover{color:var(--text)}
+details p{margin:6px 0;line-height:1.7}
+details code{color:var(--text);background:var(--alt);padding:1px 6px;border-radius:4px}
+#res{width:100%}
+.rtop{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:end}
+.big div{color:var(--sub);font-size:24px;line-height:1}
+.big b{display:block;color:var(--main);font-size:clamp(44px,7vw,64px);font-weight:500;line-height:1.05;margin-bottom:14px}
+.chart{height:170px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--alt);padding-bottom:2px}
+.chart i{flex:1;max-width:28px;background:var(--main);border-radius:2px 2px 0 0;min-height:3px;opacity:.9}
+.chart i.x{background:var(--err)}
+.cap{color:var(--sub);font-size:12px;margin-top:6px;display:flex;justify-content:space-between}
+.row{display:flex;flex-wrap:wrap;gap:14px 36px;margin-top:22px}
+.row div{color:var(--sub);font-size:14px}
+.row b{display:block;color:var(--main);font-size:26px;font-weight:500;white-space:nowrap}
+.miss{margin-top:22px;color:var(--sub);font-size:14px}
+.miss ul{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-wrap:wrap;gap:6px 22px}
+.miss li{color:var(--text)}
+.miss em{color:var(--err);font-style:normal}
+.day{margin-top:28px;background:var(--alt);border-radius:10px;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center}
+.day h2{margin:0 0 4px;font-size:15px;font-weight:500;color:var(--text)}
+.day p{margin:0;color:var(--sub);font-size:13px}
+.day .meter{width:100%;height:8px;margin-top:12px;background:var(--bg)}
+.week{display:flex;gap:8px;align-items:flex-end;height:74px}
+.week div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--sub);height:100%;justify-content:flex-end}
+.week i{width:16px;background:var(--sub);border-radius:3px;min-height:3px}
+.week .t i{background:var(--main)}
+.acts{display:flex;justify-content:center;gap:10px;margin-top:24px}
+.acts button{color:var(--sub);padding:10px 18px;min-height:44px;background:var(--alt)}
+.acts button:hover{color:var(--bg);background:var(--text)}
+.new{color:var(--main);font-size:13px;margin-left:8px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--alt);color:var(--text);border-left:3px solid var(--main);padding:12px 16px;border-radius:6px;font-size:13px;max-width:min(520px,92vw);box-shadow:0 6px 24px #0006;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.show{opacity:1}
+@media (max-width:600px){
+  .wrap{padding:16px 12px;gap:12px}
+  .logo{font-size:22px}
+  .sep{display:none}
+  nav{padding:4px 6px}
+  .rtop{grid-template-columns:minmax(0,1fr)}
+  .big{display:flex;gap:28px}
+  .day{grid-template-columns:minmax(0,1fr)}
+  .keys{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="3" width="30" height="28" rx="4" fill="none" stroke="#646669" stroke-width="2.5"/><rect x="2" y="11" width="30" height="2.5" fill="#646669"/><g fill="#e2b714"><ellipse cx="10" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="17" cy="8" rx="4.5" ry="2.4"/><ellipse cx="24" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="24" cy="20.5" rx="4.5" ry="2.4"/></g><g fill="#646669"><ellipse cx="10" cy="27" rx="4.5" ry="2.4"/><ellipse cx="17" cy="27" rx="4.5" ry="2.4"/></g></svg>
+      <div>soroban<small>treino diário</small></div>
+    </div>
+    <button class="today" id="today" title="Clique para mudar a meta diária"></button>
+  </header>
+
+  <nav id="cfg" aria-label="Opções do treino">
+    <div class="g" data-k="mode">
+      <button data-v="add">+ soma</button>
+      <button data-v="sub">− subtração</button>
+      <button data-v="mul">× multiplicação</button>
+      <button data-v="div">÷ divisão</button>
+      <button data-v="mix">? aleatório</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="digits"><span class="lb">algarismos</span><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button></div>
+    <i class="sep" id="termsSep"></i>
+    <div class="g" data-k="terms" id="termsG"><span class="lb">parcelas</span><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div>
+    <i class="sep"></i>
+    <div class="g" data-k="lenType"><button data-v="time">tempo</button><button data-v="count">contas</button></div>
+    <div class="g" data-k="time" id="timeG"><button data-v="30">30</button><button data-v="60">60</button><button data-v="120">120</button></div>
+    <div class="g" data-k="count" id="countG"><button data-v="10">10</button><button data-v="25">25</button><button data-v="50">50</button></div>
+    <div class="g" data-k="toggles">
+      <button data-t="speak"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>ler conta</button>
+      <button data-t="listen"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.3-3a5.3 5.3 0 0 1-10.6 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9h-1.7z"/></svg>microfone</button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="test">
+      <div id="live"></div>
+      <div id="stage">
+        <div class="focus">clique aqui ou aperte qualquer tecla para focar</div>
+        <div id="prob"></div>
+        <div id="ans"></div>
+        <div id="next"></div>
+        <div id="abaco" aria-hidden="true"></div>
+        <input id="inp" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Sua resposta" autofocus>
+      </div>
+      <button id="restart" title="Reiniciar (tab)" aria-label="Reiniciar"><svg viewBox="0 0 24 24"><path d="M17.7 6.3A8 8 0 1 0 19.7 14h-2.1a6 6 0 1 1-1.4-6.2L13 11h7V4l-2.3 2.3z"/></svg></button>
+    </section>
+    <section id="res" hidden></section>
+  </main>
+
+  <footer>
+    <div id="mic" hidden><span class="dot"></span><span>ouvindo</span><span id="micTxt"></span></div>
+    <div class="keys">
+      <span><kbd>tab</kbd> reiniciar</span>
+      <span><kbd>enter</kbd> confirmar</span>
+      <span><kbd>esc</kbd> pular</span>
+      <span><kbd>ctrl</kbd> + <kbd>m</kbd> microfone</span>
+    </div>
+    <details class="keys">
+      <summary>comandos de voz</summary>
+      <p>diga a resposta: <code>cinquenta e sete</code> ou <code>57</code></p>
+      <p><code>próximo</code> <code>repetir</code> <code>reiniciar</code> <code>parar</code></p>
+      <p><code>soma</code> <code>subtração</code> <code>multiplicação</code> <code>divisão</code> <code>aleatório</code></p>
+      <p><code>um / dois / três algarismos</code> &nbsp; <code>tempo</code> <code>contas</code></p>
+    </details>
+  </footer>
+</div>
+<div id="toast" role="status"></div>
+<script src="main.js"></script>
+</body>
+</html>

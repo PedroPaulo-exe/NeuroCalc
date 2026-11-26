@@ -1,60 +1,30 @@
-# NeuroCalc
+# Soroban diário
 
-Treinamento diário de cálculo mental inspirado no Monkeytype, com foco em velocidade, precisão e consistência.
+Treino diário de soroban no estilo do Monkeytype, feito em TypeScript, com leitura das contas em voz alta e respostas por voz.
 
-Desenvolvido em TypeScript, o projeto oferece exercícios matemáticos interativos, leitura de operações em voz alta e reconhecimento de respostas por voz, proporcionando uma experiência dinâmica de treinamento cerebral.
+## Usar agora
+Abra `dist/soroban.html` no **Chrome** ou no **Edge**. A primeira conta (soma, 2 algarismos) já está na tela: é só começar a digitar.
+Para a voz funcionar, permita o microfone quando o navegador pedir. Se o microfone não funcionar com o arquivo aberto direto,
+sirva a pasta: `npx serve dist` e abra http://localhost:3000/soroban.html
 
-## ✨ Funcionalidades
+## Atalhos
+- `tab` reiniciar · `enter`/`espaço` confirmar · `esc` pular · `ctrl+m` liga/desliga o microfone
+- A resposta certa avança sozinha. Clique em "hoje …" no topo para mudar a meta diária (25/50/100/200).
 
-- **Múltiplas operações:** soma, subtração, multiplicação e divisão.
-- **Níveis de dificuldade:** exercícios com diferentes quantidades de algarismos e parcelas.
-- **Reconhecimento de voz:** responda às questões e controle o treino usando comandos em português brasileiro.
-- **Síntese de voz:** ouça as operações durante os exercícios.
-- **Metas diárias:** escolha entre 25, 50, 100 ou 200 questões.
-- **Recordes pessoais:** acompanhe seu desempenho e evolução.
-- **Persistência local:** progresso, recordes e configurações salvos no navegador.
-- **Atalhos de teclado:** navegue pelos exercícios sem interromper o ritmo.
+## Comandos de voz (pt-BR)
+- Fale a resposta: "cinquenta e sete" ou "57"
+- "próximo", "repetir", "reiniciar", "parar"
+- "soma", "subtração", "multiplicação", "divisão", "aleatório"
+- "dois algarismos", "tempo", "contas"
 
-## 🧮 Regras dos exercícios
+## Regras das contas
+- Soma/subtração: 2, 3 ou 5 parcelas com N algarismos; a subtração nunca dá negativo.
+- Multiplicação: N algarismos × 1 algarismo (× 2 algarismos no nível 3).
+- Divisão: sempre exata; o dividendo tem N algarismos.
 
-- **Soma e subtração:** operações com 2, 3 ou 5 parcelas. As subtrações não produzem resultados negativos.
-- **Multiplicação:** números com N algarismos multiplicados por números de um algarismo, com multiplicadores de dois algarismos disponíveis no nível 3.
-- **Divisão:** operações exatas, sem resto, com o dividendo definido pela quantidade de algarismos selecionada.
-
-## 🛠️ Tecnologias
-
-- TypeScript
-- HTML, CSS e JavaScript
-- Web Speech API
-- LocalStorage
-
-## ⚙️ Desenvolvimento
-
-Requisitos: Node.js e npm.
-
-```bash
-npm install
-npm run build
+## Desenvolver
 ```
-
-O processo de build compila `src/main.ts` e gera os arquivos de distribuição em `dist/`, incluindo `dist/soroban.html`.
-
-## 🌐 Deploy
-
-O projeto pode ser publicado na Vercel como uma aplicação web estática.
-
-Configure o projeto com os seguintes parâmetros:
-
-| Configuração | Valor |
-|---|---|
-| Framework Preset | Other |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
-| Install Command | `npm install` |
-
-O reconhecimento e a síntese de voz dependem do suporte do navegador às APIs de voz e das permissões concedidas pelo usuário.
-
-## 📌 Sobre o projeto
-
-A proposta é tornar o treino de cálculo mental simples, acessível e consistente, combinando a dinâmica de plataformas de digitação com exercícios matemáticos e recursos de voz.
-
+npm install
+npm run build     # src/main.ts -> dist/main.js -> dist/soroban.html (arquivo único)
+```
+Progresso diário, recordes e opções ficam salvos no navegador (localStorage).
