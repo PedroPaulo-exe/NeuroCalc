@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soroban — sessão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+/* VOICE: calmo e focado, uma prova curta: 10 contas, 40 segundos cada.
+   IDEA: o modo "sessão" do Monkeytype aplicado ao soroban, com play, pausa e placar.
+   PICTURE: um grande botão de play; durante a sessão, a conta gigante, o relógio e o soroban vivo.
+   COLOUR and TYPE: mesmo tema "serika dark" (grafite, amarelo-ouro, cinza) e Roboto Mono.
+   LAYOUT: opções no topo, palco central com barra de tempo e 10 marcadores, atalhos no rodapé. */
+:root{color-scheme:dark;--bg:#323437;--alt:#2c2e31;--main:#e2b714;--sub:#646669;--text:#d1d0c5;--err:#ca4754;--font:'Roboto Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 var(--font);overflow-x:clip}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;border-radius:6px}
+button:focus-visible{outline:2px solid var(--main);outline-offset:2px}
+[hidden],body.in-hist nav{display:none!important}
+.wrap{max-width:1040px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto auto 1fr auto;gap:18px;padding:24px max(4vw,16px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-size:28px;font-weight:700;letter-spacing:-.5px}
+.logo svg{width:34px;height:34px}
+.logo small{display:block;font-size:11px;font-weight:400;color:var(--sub);letter-spacing:0;margin-top:-6px}
+.pill{color:var(--sub);font-size:13px;padding:8px 10px}
+.pill b{color:var(--text);font-weight:500}
+button.pill{transition:color .12s,background .12s}
+button.pill:hover{color:var(--text);background:var(--alt)}
+nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;background:var(--alt);border-radius:8px;padding:4px 10px;font-size:13px;justify-self:center;max-width:100%}
+.g{display:flex;align-items:center;flex-wrap:wrap}
+.g button{color:var(--sub);padding:6px 7px;min-height:40px;transition:color .12s}
+.g button:hover{color:var(--text)}
+.g button.on{color:var(--main)}
+.g .lb{color:var(--sub);opacity:.7;padding:0 4px 0 2px}
+.g svg{width:14px;height:14px;vertical-align:-2px;margin-right:5px;fill:currentColor}
+.sep{width:4px;height:20px;border-radius:2px;background:var(--bg);margin:0 4px}
+body.running header,body.running nav,body.running footer .keys{opacity:0;pointer-events:none}
+header,nav,footer .keys{transition:opacity .25s}
+main{display:flex;flex-direction:column;justify-content:center;align-items:center}
+/* tela inicial */
+#idle{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.play{width:132px;height:132px;border-radius:50%;border:3px solid var(--main);display:grid;place-items:center;color:var(--main);transition:background .15s,color .15s,transform .15s}
+.play:hover{background:var(--main);color:var(--bg);transform:scale(1.04)}
+.play svg{width:52px;height:52px;fill:currentColor;margin-left:8px}
+#idle h1{margin:18px 0 0;font-size:clamp(22px,3.4vw,32px);font-weight:500;line-height:1.15;text-wrap:balance}
+#idle p{margin:0;color:var(--sub);font-size:14px;max-width:560px}
+#idle .hint{margin-top:8px;font-size:13px}
+/* sessão */
+#run{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.top{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#qn{color:var(--sub);font-size:18px}
+#qn b{color:var(--text);font-weight:500;font-size:28px}
+.dots{display:flex;gap:6px;align-items:center}
+.dots i{width:14px;height:14px;border-radius:50%;background:var(--alt);border:2px solid var(--alt)}
+.dots i.cur{border-color:var(--main)}
+.dots i.ok{background:var(--main);border-color:var(--main)}
+.dots i.x{background:var(--err);border-color:var(--err)}
+#secs{color:var(--main);font-size:40px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+#secs small{font-size:16px;color:var(--sub);margin-left:2px}
+#secs.low{color:var(--err)}
+.bar{width:100%;height:6px;border-radius:3px;background:var(--alt);overflow:hidden;margin:6px 0 10px}
+.bar i{display:block;height:100%;background:var(--main);width:100%}
+.bar.low i{background:var(--err)}
+#stage{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;cursor:text;padding:8px 0;border-radius:10px}
+#stage.blur>*:not(.focus),#stage.paused>*:not(.pz){filter:blur(10px);opacity:.35}
+.focus,.pz{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text);font-size:15px;z-index:2;text-align:center;padding:16px}
+#stage.blur:not(.paused) .focus{display:flex}
+#stage.paused .pz{display:flex}
+.pz b{font-size:26px;font-weight:500;color:var(--main)}
+#prob{font-size:clamp(38px,8vw,76px);line-height:1.1;text-align:center;font-weight:500;letter-spacing:1px;overflow-wrap:anywhere}
+#prob .op{color:var(--sub)}
+#ans{font-size:clamp(38px,8vw,76px);line-height:1.15;color:var(--main);min-height:1.2em;display:flex;align-items:center;gap:2px;font-weight:500}
+#ans .eq{color:var(--sub);margin-right:.35em}
+#ans.bad{color:var(--err)}
+#ans s{color:var(--err);opacity:.7;margin-right:.4em;font-size:.6em}
+#ans .fix{color:var(--err)}
+#ans.ok{animation:pop .25s}
+#msg{min-height:24px;color:var(--err);font-size:15px}
+#msg.good{color:var(--main)}
+.caret{display:inline-block;width:3px;height:.9em;background:var(--main);border-radius:2px;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+@keyframes pop{50%{transform:scale(1.07)}}
+#abaco{width:min(360px,90%);margin-top:6px}
+#abaco svg{width:100%;height:auto;display:block}
+.bd{fill:var(--sub);opacity:.55;transition:transform .18s ease,fill .18s,opacity .18s}
+.bd.on{fill:var(--main);opacity:1}
+#inp{position:absolute;opacity:0;width:1px;height:1px;left:50%;top:40%;font-size:16px;border:0;padding:0}
+.ctl{display:flex;gap:8px;margin-top:14px}
+.ctl button{display:flex;align-items:center;gap:8px;color:var(--sub);background:var(--alt);padding:10px 16px;min-height:44px;font-size:14px}
+.ctl button:hover{color:var(--bg);background:var(--text)}
+.ctl svg{width:16px;height:16px;fill:currentColor}
+footer{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;color:var(--sub)}
+.keys{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px}
+kbd{font:inherit;font-size:11px;background:var(--sub);color:var(--bg);border-radius:3px;padding:1px 5px}
+#mic{display:flex;align-items:center;gap:8px;background:var(--alt);border-radius:20px;padding:6px 14px;font-size:13px;max-width:100%}
+#mic .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:none;animation:pulse 1.4s ease-in-out infinite}
+#micTxt{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes pulse{50%{opacity:.25}}
+details{max-width:640px;text-align:center}
+summary{cursor:pointer;padding:6px}
+summary:hover{color:var(--text)}
+details p{margin:6px 0;line-height:1.7}
+details code{color:var(--text);background:var(--alt);padding:1px 6px;border-radius:4px}
+/* resultado */
+#res{width:100%}
+.rtop{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:36px;align-items:center}
+.grade{color:var(--sub);font-size:22px;line-height:1;text-align:center;padding:0 8px}
+.grade b{display:block;font-size:clamp(64px,11vw,110px);font-weight:500;line-height:1;margin:8px 0 6px;color:var(--text)}
+.grade span{font-size:14px}
+.g-SS b{color:var(--main);text-shadow:0 0 18px rgba(226,183,20,.45)}
+.g-S b{color:var(--main)}
+.g-D b{color:var(--err)}
+.scale{margin-top:22px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--sub)}
+.scale b{color:var(--text);font-weight:500;margin-right:4px}
+.scale .on,.scale .on b{color:var(--main)}
+@media (max-width:720px){.rtop{grid-template-columns:auto auto}.rtop .row{grid-column:1/-1}}
+.big{color:var(--sub);font-size:22px;line-height:1}
+.big b{display:block;color:var(--main);font-size:clamp(64px,11vw,110px);font-weight:500;line-height:1;margin:8px 0 6px}
+.big span{font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:14px 34px}
+.row div{color:var(--sub);font-size:14px}
+.row b{display:block;color:var(--main);font-size:26px;font-weight:500;white-space:nowrap}
+.list{margin-top:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 18px;font-size:14px}
+.list div{display:flex;gap:10px;align-items:baseline;padding:6px 10px;border-radius:6px;background:var(--alt)}
+.list .n{color:var(--sub);width:1.6em;flex:none}
+.list .c{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .t{color:var(--sub);font-size:12px;white-space:nowrap}
+.list .x .c em{color:var(--err);font-style:normal}
+.list .ok .c b{color:var(--main);font-weight:500}
+.hist{margin-top:26px;background:var(--alt);border-radius:10px;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center}
+.hist h2{margin:0 0 4px;font-size:15px;font-weight:500}
+.hist p{margin:0;color:var(--sub);font-size:13px}
+.spark{display:flex;gap:6px;align-items:flex-end;height:70px}
+.spark i{width:14px;background:var(--sub);border-radius:3px;min-height:3px}
+.spark i.last{background:var(--main)}
+.acts{display:flex;justify-content:center;gap:10px;margin-top:24px}
+.acts button{display:flex;align-items:center;gap:8px;color:var(--bg);background:var(--main);padding:10px 20px;min-height:44px;font-weight:500}
+.acts button:hover{background:var(--text)}
+.acts svg{width:16px;height:16px;fill:currentColor}
+/* notas */
+.gl{display:inline-block;min-width:2.1em;text-align:center;font-weight:700;color:var(--text)}
+.gl.g-SS{color:var(--main);text-shadow:0 0 10px rgba(226,183,20,.5)}
+.gl.g-S{color:var(--main)}
+.gl.g-D{color:var(--err)}
+.scale.idle{justify-content:center;margin-top:14px;max-width:720px}
+.how{margin-top:4px;max-width:620px;color:var(--sub);font-size:13px}
+.how p{margin:8px 0;line-height:1.6;text-align:left}
+.how p b{color:var(--text);font-weight:500}
+.how table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left}
+.how th{font-weight:400;font-size:12px;opacity:.8;padding:4px 8px}
+.how td{padding:5px 8px;border-top:1px solid var(--alt);color:var(--text)}
+.how td:last-child{color:var(--sub)}
+.dim{color:var(--sub)}
+/* histórico */
+#historico{width:100%;display:flex;flex-direction:column;gap:18px}
+.hhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.hhead h2{margin:0;font-size:28px;font-weight:500}
+.lnk{color:var(--sub);padding:8px 10px;min-height:40px;font-size:13px;transition:color .12s}
+.lnk:hover{color:var(--text)}
+.lnk.danger:hover{color:var(--err)}
+.empty{color:var(--sub);font-size:14px;margin:0}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 20px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis div{color:var(--sub);font-size:13px}
+.kpis b{display:block;color:var(--main);font-size:30px;font-weight:500;line-height:1.2;white-space:nowrap}
+.kpis span{font-size:12px}
+.hgrid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px}
+.card{background:var(--alt);border-radius:10px;padding:16px 18px}
+.card h3{margin:0 0 12px;font-size:13px;font-weight:400;color:var(--sub)}
+.heat{display:grid;grid-template-rows:repeat(7,12px);grid-auto-flow:column;grid-auto-columns:12px;gap:4px}
+.heat i,.legend i{width:12px;height:12px;border-radius:3px;background:var(--bg)}
+.heat i.fut{background:none}
+.l1{background:#5c5230!important}.l2{background:#8a7424!important}.l3{background:#b8951b!important}.l4{background:var(--main)!important}
+.legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--sub)}
+.gbars{display:flex;flex-direction:column;gap:6px}
+.gbars div{display:grid;grid-template-columns:2.4em minmax(0,1fr) 2.5em;align-items:center;gap:10px;font-size:14px}
+.track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--sub);border-radius:5px}
+.gbars div:nth-child(-n+2) .track i{background:var(--main)}
+.gbars em{font-style:normal;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tbl table{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-weight:400;color:var(--sub);font-size:12px;padding:6px 10px}
+.tbl td{padding:7px 10px;border-top:1px solid var(--bg);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl .r{text-align:right}
+.tbl tr:hover td{background:#ffffff06}
+.tacts{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
+.tacts .danger{margin-left:auto}
+.acts #seeHist{background:var(--alt);color:var(--sub)}
+.acts #seeHist:hover{background:var(--text);color:var(--bg)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--alt);color:var(--text);border-left:3px solid var(--main);padding:12px 16px;border-radius:6px;font-size:13px;max-width:min(520px,92vw);box-shadow:0 6px 24px #0006;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.show{opacity:1}
+@media (max-width:600px){
+  .wrap{padding:16px 12px;gap:12px}
+  .logo{font-size:22px}
+  .sep{display:none}
+  .dots{order:3;width:100%;justify-content:center}
+  .dots i{width:12px;height:12px}
+  .rtop,.hist,.hgrid{grid-template-columns:minmax(0,1fr)}
+  .heat{grid-template-rows:repeat(7,10px);grid-auto-columns:10px;gap:3px}
+  .heat i{width:10px;height:10px}
+  .keys{display:none}
+  .ctl button span{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="3" width="30" height="28" rx="4" fill="none" stroke="#646669" stroke-width="2.5"/><rect x="2" y="11" width="30" height="2.5" fill="#646669"/><g fill="#e2b714"><ellipse cx="10" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="17" cy="8" rx="4.5" ry="2.4"/><ellipse cx="24" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="24" cy="20.5" rx="4.5" ry="2.4"/></g><g fill="#646669"><ellipse cx="10" cy="27" rx="4.5" ry="2.4"/><ellipse cx="17" cy="27" rx="4.5" ry="2.4"/></g></svg>
+      <div>soroban<small>sessão · 10 questões · 40 s</small></div>
+    </div>
+    <button class="pill" id="avg" title="Abrir histórico (h)"></button>
+  </header>
+
+  <nav id="cfg" aria-label="Opções da sessão">
+    <div class="g" data-k="ops"><span class="lb">contas</span>
+      <button data-op="add">+ soma</button><button data-op="sub">− subtração</button><button data-op="mul">× multiplicação</button><button data-op="div">÷ divisão</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="addLen"><span class="lb">+ −</span>
+      <button data-a="2" title="Soma e subtração com números de 2 algarismos (ex.: 47 + 85).">2 alg.</button>
+      <button data-a="3" title="Soma e subtração com números de 3 algarismos (ex.: 472 + 385).">3 alg.</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="level"><span class="lb">× ÷</span>
+      <button data-v="2x1" title="Multiplicação: 2 algarismos × 1 algarismo. Divisão: resultado de 2 algarismos, divisor de 1.">2 × 1 alg.</button>
+      <button data-v="2x2" title="Multiplicação: 2 algarismos × 2 algarismos. Divisão: resultado e divisor de 2 algarismos.">2 × 2 alg.</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="toggles">
+      <button data-t="speak"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>ler conta</button>
+      <button data-t="listen"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.3-3a5.3 5.3 0 0 1-10.6 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9h-1.7z"/></svg>microfone</button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="idle">
+      <button class="play" id="playBig" aria-label="Começar sessão"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></button>
+      <h1>10 questões · 40 segundos cada</h1>
+      <p id="desc"></p>
+      <p class="hint">aperte <kbd>enter</kbd> ou clique no play · <kbd>h</kbd> histórico</p>
+      <div class="scale idle" id="idleScale" aria-label="notas para as opções atuais"></div>
+      <details class="how">
+        <summary>como funciona a nota</summary>
+        <p>A nota compara o seu <b>tempo médio por conta</b> com o tempo de um mestre de soroban (nível dan), e exige uma taxa mínima de acertos. Conta com tempo esgotado vale 40 s.</p>
+        <table>
+          <thead><tr><th>nota</th><th>tempo médio</th><th>acertos</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b class="gl g-SS">SS</b></td><td>até 1× o mestre</td><td>100%</td><td>nível de mestre</td></tr>
+            <tr><td><b class="gl g-S">S</b></td><td>até 2×</td><td>90%+</td><td>avançado (dan)</td></tr>
+            <tr><td><b class="gl g-A">A</b></td><td>até 3,5×</td><td>80%+</td><td>muito bom</td></tr>
+            <tr><td><b class="gl g-B">B</b></td><td>até 6×</td><td>70%+</td><td>bom</td></tr>
+            <tr><td><b class="gl g-C">C</b></td><td>até 10×</td><td>50%+</td><td>em progresso</td></tr>
+            <tr><td><b class="gl g-D">D</b></td><td>acima disso</td><td>—</td><td>continue treinando</td></tr>
+          </tbody>
+        </table>
+        <p class="dim">tempo de mestre por conta: + − 2 alg. 2 s · + − 3 alg. 3 s · × 2×1 2,5 s · × 2×2 5 s · ÷ 2×1 3 s · ÷ 2×2 6 s. São estimativas: as provas oficiais de kyu e dan medem acertos em tempo fixo, com números maiores.</p>
+      </details>
+    </section>
+
+    <section id="historico" hidden></section>
+
+    <section id="run" hidden>
+      <div class="top">
+        <div id="qn"></div>
+        <div class="dots" id="dots"></div>
+        <div id="secs"></div>
+      </div>
+      <div class="bar" id="bar"><i></i></div>
+      <div id="stage">
+        <div class="focus">clique aqui ou aperte qualquer tecla para focar</div>
+        <div class="pz"><b>pausado</b>aperte <kbd>esc</kbd> ou o play para continuar</div>
+        <div id="prob"></div>
+        <div id="ans"></div>
+        <div id="msg"></div>
+        <div id="abaco" aria-hidden="true"></div>
+        <input id="inp" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Sua resposta">
+      </div>
+      <div class="ctl">
+        <button id="pp" title="Pausar (esc)"></button>
+        <button id="skip" title="Pular questão"><svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM16 4h3v16h-3z"/></svg><span>pular</span></button>
+        <button id="stop" title="Encerrar sessão"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span>parar</span></button>
+      </div>
+    </section>
+
+    <section id="res" hidden></section>
+  </main>
+
+  <footer>
+    <div id="mic" hidden><span class="dot"></span><span>ouvindo</span><span id="micTxt"></span></div>
+    <div class="keys">
+      <span><kbd>enter</kbd> play / confirmar</span>
+      <span><kbd>esc</kbd> pausar</span>
+      <span><kbd>tab</kbd> nova sessão</span>
+      <span><kbd>ctrl</kbd> + <kbd>m</kbd> microfone</span>
+    </div>
+    <details class="keys">
+      <summary>comandos de voz</summary>
+      <p>diga a resposta: <code>cinquenta e sete</code> ou <code>57</code></p>
+      <p><code>começar</code> <code>pausar</code> <code>continuar</code> <code>pular</code> <code>repetir</code> <code>parar</code></p>
+      <p><code>desligar microfone</code></p>
+    </details>
+  </footer>
+</div>
+<div id="toast" role="status"></div>
+<script src="sessao.js"></script>
+</body>
+</html>
