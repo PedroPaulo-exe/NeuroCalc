@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soroban — sessão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+/* VOICE: calmo e focado, uma prova curta: 10 contas, 40 segundos cada.
+   IDEA: o modo "sessão" do Monkeytype aplicado ao soroban, com play, pausa e placar.
+   PICTURE: um grande botão de play; durante a sessão, a conta gigante, o relógio e o soroban vivo.
+   COLOUR and TYPE: mesmo tema "serika dark" (grafite, amarelo-ouro, cinza) e Roboto Mono.
+   LAYOUT: opções no topo, palco central com barra de tempo e 10 marcadores, atalhos no rodapé. */
+:root{color-scheme:dark;--bg:#323437;--alt:#2c2e31;--main:#e2b714;--sub:#646669;--text:#d1d0c5;--err:#ca4754;--font:'Roboto Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 var(--font);overflow-x:clip}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;border-radius:6px}
+button:focus-visible{outline:2px solid var(--main);outline-offset:2px}
+[hidden],body.in-hist nav{display:none!important}
+.wrap{max-width:1040px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto auto 1fr auto;gap:18px;padding:24px max(4vw,16px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-size:28px;font-weight:700;letter-spacing:-.5px}
+.logo svg{width:34px;height:34px}
+.logo small{display:block;font-size:11px;font-weight:400;color:var(--sub);letter-spacing:0;margin-top:-6px}
+.pill{color:var(--sub);font-size:13px;padding:8px 10px}
+.pill b{color:var(--text);font-weight:500}
+button.pill{transition:color .12s,background .12s}
+button.pill:hover{color:var(--text);background:var(--alt)}
+nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;background:var(--alt);border-radius:8px;padding:4px 10px;font-size:13px;justify-self:center;max-width:100%}
+.g{display:flex;align-items:center;flex-wrap:wrap}
+.g button{color:var(--sub);padding:6px 7px;min-height:40px;transition:color .12s}
+.g button:hover{color:var(--text)}
+.g button.on{color:var(--main)}
+.g .lb{color:var(--sub);opacity:.7;padding:0 4px 0 2px}
+.g svg{width:14px;height:14px;vertical-align:-2px;margin-right:5px;fill:currentColor}
+.sep{width:4px;height:20px;border-radius:2px;background:var(--bg);margin:0 4px}
+body.running header,body.running nav,body.running footer .keys{opacity:0;pointer-events:none}
+header,nav,footer .keys{transition:opacity .25s}
+main{display:flex;flex-direction:column;justify-content:center;align-items:center}
+/* tela inicial */
+#idle{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.play{width:132px;height:132px;border-radius:50%;border:3px solid var(--main);display:grid;place-items:center;color:var(--main);transition:background .15s,color .15s,transform .15s}
+.play:hover{background:var(--main);color:var(--bg);transform:scale(1.04)}
+.play svg{width:52px;height:52px;fill:currentColor;margin-left:8px}
+#idle h1{margin:18px 0 0;font-size:clamp(22px,3.4vw,32px);font-weight:500;line-height:1.15;text-wrap:balance}
+#idle p{margin:0;color:var(--sub);font-size:14px;max-width:560px}
+#idle .hint{margin-top:8px;font-size:13px}
+/* sessão */
+#run{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.top{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#qn{color:var(--sub);font-size:18px}
+#qn b{color:var(--text);font-weight:500;font-size:28px}
+.dots{display:flex;gap:6px;align-items:center}
+.dots i{width:14px;height:14px;border-radius:50%;background:var(--alt);border:2px solid var(--alt)}
+.dots i.cur{border-color:var(--main)}
+.dots i.ok{background:var(--main);border-color:var(--main)}
+.dots i.x{background:var(--err);border-color:var(--err)}
+#secs{color:var(--main);font-size:40px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+#secs small{font-size:16px;color:var(--sub);margin-left:2px}
+#secs.low{color:var(--err)}
+.bar{width:100%;height:6px;border-radius:3px;background:var(--alt);overflow:hidden;margin:6px 0 10px}
+.bar i{display:block;height:100%;background:var(--main);width:100%}
+.bar.low i{background:var(--err)}
+#stage{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;cursor:text;padding:8px 0;border-radius:10px}
+#stage.blur>*:not(.focus),#stage.paused>*:not(.pz){filter:blur(10px);opacity:.35}
+.focus,.pz{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text);font-size:15px;z-index:2;text-align:center;padding:16px}
+#stage.blur:not(.paused) .focus{display:flex}
+#stage.paused .pz{display:flex}
+.pz b{font-size:26px;font-weight:500;color:var(--main)}
+#prob{font-size:clamp(38px,8vw,76px);line-height:1.1;text-align:center;font-weight:500;letter-spacing:1px;overflow-wrap:anywhere}
+#prob .op{color:var(--sub)}
+#ans{font-size:clamp(38px,8vw,76px);line-height:1.15;color:var(--main);min-height:1.2em;display:flex;align-items:center;gap:2px;font-weight:500}
+#ans .eq{color:var(--sub);margin-right:.35em}
+#ans.bad{color:var(--err)}
+#ans s{color:var(--err);opacity:.7;margin-right:.4em;font-size:.6em}
+#ans .fix{color:var(--err)}
+#ans.ok{animation:pop .25s}
+#msg{min-height:24px;color:var(--err);font-size:15px}
+#msg.good{color:var(--main)}
+.caret{display:inline-block;width:3px;height:.9em;background:var(--main);border-radius:2px;animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+@keyframes pop{50%{transform:scale(1.07)}}
+#abaco{width:min(360px,90%);margin-top:6px}
+#abaco svg{width:100%;height:auto;display:block}
+.bd{fill:var(--sub);opacity:.55;transition:transform .18s ease,fill .18s,opacity .18s}
+.bd.on{fill:var(--main);opacity:1}
+#inp{position:absolute;opacity:0;width:1px;height:1px;left:50%;top:40%;font-size:16px;border:0;padding:0}
+.ctl{display:flex;gap:8px;margin-top:14px}
+.ctl button{display:flex;align-items:center;gap:8px;color:var(--sub);background:var(--alt);padding:10px 16px;min-height:44px;font-size:14px}
+.ctl button:hover{color:var(--bg);background:var(--text)}
+.ctl svg{width:16px;height:16px;fill:currentColor}
+footer{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;color:var(--sub)}
+.keys{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px}
+kbd{font:inherit;font-size:11px;background:var(--sub);color:var(--bg);border-radius:3px;padding:1px 5px}
+#mic{display:flex;align-items:center;gap:8px;background:var(--alt);border-radius:20px;padding:6px 14px;font-size:13px;max-width:100%}
+#mic .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:none;animation:pulse 1.4s ease-in-out infinite}
+#micTxt{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes pulse{50%{opacity:.25}}
+details{max-width:640px;text-align:center}
+summary{cursor:pointer;padding:6px}
+summary:hover{color:var(--text)}
+details p{margin:6px 0;line-height:1.7}
+details code{color:var(--text);background:var(--alt);padding:1px 6px;border-radius:4px}
+/* resultado */
+#res{width:100%}
+.rtop{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:36px;align-items:center}
+.grade{color:var(--sub);font-size:22px;line-height:1;text-align:center;padding:0 8px}
+.grade b{display:block;font-size:clamp(64px,11vw,110px);font-weight:500;line-height:1;margin:8px 0 6px;color:var(--text)}
+.grade span{font-size:14px}
+.g-SS b{color:var(--main);text-shadow:0 0 18px rgba(226,183,20,.45)}
+.g-S b{color:var(--main)}
+.g-D b{color:var(--err)}
+.scale{margin-top:22px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--sub)}
+.scale b{color:var(--text);font-weight:500;margin-right:4px}
+.scale .on,.scale .on b{color:var(--main)}
+@media (max-width:720px){.rtop{grid-template-columns:auto auto}.rtop .row{grid-column:1/-1}}
+.big{color:var(--sub);font-size:22px;line-height:1}
+.big b{display:block;color:var(--main);font-size:clamp(64px,11vw,110px);font-weight:500;line-height:1;margin:8px 0 6px}
+.big span{font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:14px 34px}
+.row div{color:var(--sub);font-size:14px}
+.row b{display:block;color:var(--main);font-size:26px;font-weight:500;white-space:nowrap}
+.list{margin-top:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 18px;font-size:14px}
+.list div{display:flex;gap:10px;align-items:baseline;padding:6px 10px;border-radius:6px;background:var(--alt)}
+.list .n{color:var(--sub);width:1.6em;flex:none}
+.list .c{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .t{color:var(--sub);font-size:12px;white-space:nowrap}
+.list .x .c em{color:var(--err);font-style:normal}
+.list .ok .c b{color:var(--main);font-weight:500}
+.hist{margin-top:26px;background:var(--alt);border-radius:10px;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center}
+.hist h2{margin:0 0 4px;font-size:15px;font-weight:500}
+.hist p{margin:0;color:var(--sub);font-size:13px}
+.spark{display:flex;gap:6px;align-items:flex-end;height:70px}
+.spark i{width:14px;background:var(--sub);border-radius:3px;min-height:3px}
+.spark i.last{background:var(--main)}
+.acts{display:flex;justify-content:center;gap:10px;margin-top:24px}
+.acts button{display:flex;align-items:center;gap:8px;color:var(--bg);background:var(--main);padding:10px 20px;min-height:44px;font-weight:500}
+.acts button:hover{background:var(--text)}
+.acts svg{width:16px;height:16px;fill:currentColor}
+/* notas */
+.gl{display:inline-block;min-width:2.1em;text-align:center;font-weight:700;color:var(--text)}
+.gl.g-SS{color:var(--main);text-shadow:0 0 10px rgba(226,183,20,.5)}
+.gl.g-S{color:var(--main)}
+.gl.g-D{color:var(--err)}
+.scale.idle{justify-content:center;margin-top:14px;max-width:720px}
+.how{margin-top:4px;max-width:620px;color:var(--sub);font-size:13px}
+.how p{margin:8px 0;line-height:1.6;text-align:left}
+.how p b{color:var(--text);font-weight:500}
+.how table{width:100%;border-collapse:collapse;margin:8px 0;text-align:left}
+.how th{font-weight:400;font-size:12px;opacity:.8;padding:4px 8px}
+.how td{padding:5px 8px;border-top:1px solid var(--alt);color:var(--text)}
+.how td:last-child{color:var(--sub)}
+.dim{color:var(--sub)}
+/* histórico */
+#historico{width:100%;display:flex;flex-direction:column;gap:18px}
+.hhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.hhead h2{margin:0;font-size:28px;font-weight:500}
+.lnk{color:var(--sub);padding:8px 10px;min-height:40px;font-size:13px;transition:color .12s}
+.lnk:hover{color:var(--text)}
+.lnk.danger:hover{color:var(--err)}
+.empty{color:var(--sub);font-size:14px;margin:0}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 20px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis div{color:var(--sub);font-size:13px}
+.kpis b{display:block;color:var(--main);font-size:30px;font-weight:500;line-height:1.2;white-space:nowrap}
+.kpis span{font-size:12px}
+.hgrid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px}
+.card{background:var(--alt);border-radius:10px;padding:16px 18px}
+.card h3{margin:0 0 12px;font-size:13px;font-weight:400;color:var(--sub)}
+.heat{display:grid;grid-template-rows:repeat(7,12px);grid-auto-flow:column;grid-auto-columns:12px;gap:4px}
+.heat i,.legend i{width:12px;height:12px;border-radius:3px;background:var(--bg)}
+.heat i.fut{background:none}
+.l1{background:#5c5230!important}.l2{background:#8a7424!important}.l3{background:#b8951b!important}.l4{background:var(--main)!important}
+.legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--sub)}
+.gbars{display:flex;flex-direction:column;gap:6px}
+.gbars div{display:grid;grid-template-columns:2.4em minmax(0,1fr) 2.5em;align-items:center;gap:10px;font-size:14px}
+.track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--sub);border-radius:5px}
+.gbars div:nth-child(-n+2) .track i{background:var(--main)}
+.gbars em{font-style:normal;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tbl table{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-weight:400;color:var(--sub);font-size:12px;padding:6px 10px}
+.tbl td{padding:7px 10px;border-top:1px solid var(--bg);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl .r{text-align:right}
+.tbl tr:hover td{background:#ffffff06}
+.tacts{display:flex;justify-content:space-between;gap:10px;margin-top:6px}
+.tacts .danger{margin-left:auto}
+.acts #seeHist{background:var(--alt);color:var(--sub)}
+.acts #seeHist:hover{background:var(--text);color:var(--bg)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--alt);color:var(--text);border-left:3px solid var(--main);padding:12px 16px;border-radius:6px;font-size:13px;max-width:min(520px,92vw);box-shadow:0 6px 24px #0006;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.show{opacity:1}
+@media (max-width:600px){
+  .wrap{padding:16px 12px;gap:12px}
+  .logo{font-size:22px}
+  .sep{display:none}
+  .dots{order:3;width:100%;justify-content:center}
+  .dots i{width:12px;height:12px}
+  .rtop,.hist,.hgrid{grid-template-columns:minmax(0,1fr)}
+  .heat{grid-template-rows:repeat(7,10px);grid-auto-columns:10px;gap:3px}
+  .heat i{width:10px;height:10px}
+  .keys{display:none}
+  .ctl button span{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="3" width="30" height="28" rx="4" fill="none" stroke="#646669" stroke-width="2.5"/><rect x="2" y="11" width="30" height="2.5" fill="#646669"/><g fill="#e2b714"><ellipse cx="10" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="17" cy="8" rx="4.5" ry="2.4"/><ellipse cx="24" cy="15.5" rx="4.5" ry="2.4"/><ellipse cx="24" cy="20.5" rx="4.5" ry="2.4"/></g><g fill="#646669"><ellipse cx="10" cy="27" rx="4.5" ry="2.4"/><ellipse cx="17" cy="27" rx="4.5" ry="2.4"/></g></svg>
+      <div>soroban<small>sessão · 10 questões · 40 s</small></div>
+    </div>
+    <button class="pill" id="avg" title="Abrir histórico (h)"></button>
+  </header>
+
+  <nav id="cfg" aria-label="Opções da sessão">
+    <div class="g" data-k="ops"><span class="lb">contas</span>
+      <button data-op="add">+ soma</button><button data-op="sub">− subtração</button><button data-op="mul">× multiplicação</button><button data-op="div">÷ divisão</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="addLen"><span class="lb">+ −</span>
+      <button data-a="2" title="Soma e subtração com números de 2 algarismos (ex.: 47 + 85).">2 alg.</button>
+      <button data-a="3" title="Soma e subtração com números de 3 algarismos (ex.: 472 + 385).">3 alg.</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="level"><span class="lb">× ÷</span>
+      <button data-v="2x1" title="Multiplicação: 2 algarismos × 1 algarismo. Divisão: resultado de 2 algarismos, divisor de 1.">2 × 1 alg.</button>
+      <button data-v="2x2" title="Multiplicação: 2 algarismos × 2 algarismos. Divisão: resultado e divisor de 2 algarismos.">2 × 2 alg.</button>
+    </div>
+    <i class="sep"></i>
+    <div class="g" data-k="toggles">
+      <button data-t="speak"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>ler conta</button>
+      <button data-t="listen"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.3-3a5.3 5.3 0 0 1-10.6 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9h-1.7z"/></svg>microfone</button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="idle">
+      <button class="play" id="playBig" aria-label="Começar sessão"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></button>
+      <h1>10 questões · 40 segundos cada</h1>
+      <p id="desc"></p>
+      <p class="hint">aperte <kbd>enter</kbd> ou clique no play · <kbd>h</kbd> histórico</p>
+      <div class="scale idle" id="idleScale" aria-label="notas para as opções atuais"></div>
+      <details class="how">
+        <summary>como funciona a nota</summary>
+        <p>A nota compara o seu <b>tempo médio por conta</b> com o tempo de um mestre de soroban (nível dan), e exige uma taxa mínima de acertos. Conta com tempo esgotado vale 40 s.</p>
+        <table>
+          <thead><tr><th>nota</th><th>tempo médio</th><th>acertos</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b class="gl g-SS">SS</b></td><td>até 1× o mestre</td><td>100%</td><td>nível de mestre</td></tr>
+            <tr><td><b class="gl g-S">S</b></td><td>até 2×</td><td>90%+</td><td>avançado (dan)</td></tr>
+            <tr><td><b class="gl g-A">A</b></td><td>até 3,5×</td><td>80%+</td><td>muito bom</td></tr>
+            <tr><td><b class="gl g-B">B</b></td><td>até 6×</td><td>70%+</td><td>bom</td></tr>
+            <tr><td><b class="gl g-C">C</b></td><td>até 10×</td><td>50%+</td><td>em progresso</td></tr>
+            <tr><td><b class="gl g-D">D</b></td><td>acima disso</td><td>—</td><td>continue treinando</td></tr>
+          </tbody>
+        </table>
+        <p class="dim">tempo de mestre por conta: + − 2 alg. 2 s · + − 3 alg. 3 s · × 2×1 2,5 s · × 2×2 5 s · ÷ 2×1 3 s · ÷ 2×2 6 s. São estimativas: as provas oficiais de kyu e dan medem acertos em tempo fixo, com números maiores.</p>
+      </details>
+    </section>
+
+    <section id="historico" hidden></section>
+
+    <section id="run" hidden>
+      <div class="top">
+        <div id="qn"></div>
+        <div class="dots" id="dots"></div>
+        <div id="secs"></div>
+      </div>
+      <div class="bar" id="bar"><i></i></div>
+      <div id="stage">
+        <div class="focus">clique aqui ou aperte qualquer tecla para focar</div>
+        <div class="pz"><b>pausado</b>aperte <kbd>esc</kbd> ou o play para continuar</div>
+        <div id="prob"></div>
+        <div id="ans"></div>
+        <div id="msg"></div>
+        <div id="abaco" aria-hidden="true"></div>
+        <input id="inp" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Sua resposta">
+      </div>
+      <div class="ctl">
+        <button id="pp" title="Pausar (esc)"></button>
+        <button id="skip" title="Pular questão"><svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM16 4h3v16h-3z"/></svg><span>pular</span></button>
+        <button id="stop" title="Encerrar sessão"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span>parar</span></button>
+      </div>
+    </section>
+
+    <section id="res" hidden></section>
+  </main>
+
+  <footer>
+    <div id="mic" hidden><span class="dot"></span><span>ouvindo</span><span id="micTxt"></span></div>
+    <div class="keys">
+      <span><kbd>enter</kbd> play / confirmar</span>
+      <span><kbd>esc</kbd> pausar</span>
+      <span><kbd>tab</kbd> nova sessão</span>
+      <span><kbd>ctrl</kbd> + <kbd>m</kbd> microfone</span>
+    </div>
+    <details class="keys">
+      <summary>comandos de voz</summary>
+      <p>diga a resposta: <code>cinquenta e sete</code> ou <code>57</code></p>
+      <p><code>começar</code> <code>pausar</code> <code>continuar</code> <code>pular</code> <code>repetir</code> <code>parar</code></p>
+      <p><code>desligar microfone</code></p>
+    </details>
+  </footer>
+</div>
+<div id="toast" role="status"></div>
+<script>
+"use strict";
+(() => {
+    const Q = 10;
+    const LIMIT = 40000;
+    const $ = (s) => document.querySelector(s);
+    const SYM = { add: '+', sub: '−', mul: '×', div: '÷' };
+    const SAY = { add: 'mais', sub: 'menos', mul: 'vezes', div: 'dividido por' };
+    const ICON = {
+        play: '<svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg>',
+        pause: '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+    };
+    const store = {
+        get(k, d) {
+            try {
+                const v = localStorage.getItem('soroban:' + k);
+                return v ? JSON.parse(v) : d;
+            }
+            catch {
+                return d;
+            }
+        },
+        set(k, v) { try {
+            localStorage.setItem('soroban:' + k, JSON.stringify(v));
+        }
+        catch { } },
+    };
+    const cfg = { ops: ['add', 'sub', 'mul', 'div'], level: '2x1', addLen: 2, speak: true, listen: false, ...store.get('sessao-cfg', {}) };
+    if (cfg.addLen !== 2 && cfg.addLen !== 3)
+        cfg.addLen = 2;
+    if (!cfg.ops.length)
+        cfg.ops = ['add', 'sub', 'mul', 'div'];
+    const saveCfg = () => store.set('sessao-cfg', cfg);
+    const history = store.get('sessoes', []);
+    const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+    const num = (n) => ri(10 ** (n - 1), 10 ** n - 1);
+    function make(op) {
+        if (op === 'add') {
+            const n = cfg.addLen;
+            const a = num(n), b = num(n);
+            return { op, terms: [a, b], answer: a + b };
+        }
+        if (op === 'sub') {
+            const n = cfg.addLen;
+            let a = num(n), b = num(n);
+            while (a === b)
+                b = num(n);
+            if (b > a)
+                [a, b] = [b, a];
+            return { op, terms: [a, b], answer: a - b };
+        }
+        if (op === 'mul') {
+            const a = num(2);
+            const b = cfg.level === '2x1' ? ri(2, 9) : ri(11, 99);
+            return { op, terms: [a, b], answer: a * b };
+        }
+        const q = num(2);
+        const d = cfg.level === '2x1' ? ri(2, 9) : ri(11, 99);
+        return { op, terms: [q * d, d], answer: q };
+    }
+    function makeSet() {
+        const out = [];
+        const ops = Array.from({ length: Q }, (_, i) => cfg.ops[i % cfg.ops.length]);
+        for (let i = ops.length - 1; i > 0; i--) {
+            const j = ri(0, i);
+            [ops[i], ops[j]] = [ops[j], ops[i]];
+        }
+        for (const op of ops) {
+            let p = make(op);
+            for (let k = 0; k < 10 && out.some(o => o.terms.join() === p.terms.join() && o.op === p.op); k++)
+                p = make(op);
+            out.push(p);
+        }
+        return out;
+    }
+    const fmt = (p) => p.terms.join(` ${SYM[p.op]} `);
+    const fmtHTML = (p) => p.terms.join(` <span class="op">${SYM[p.op]}</span> `);
+    const sayP = (p) => p.terms.join(` ${SAY[p.op]} `);
+    function par(p) {
+        const big = p.terms[1] >= 10;
+        if (p.op === 'add' || p.op === 'sub')
+            return String(p.terms[0]).length >= 3 ? 3 : 2;
+        if (p.op === 'mul')
+            return big ? 5 : 2.5;
+        return big ? 6 : 3;
+    }
+    const GRADES = [
+        { g: 'SS', x: 1, acc: 100, what: 'nível de mestre' },
+        { g: 'S', x: 2, acc: 90, what: 'avançado (dan)' },
+        { g: 'A', x: 3.5, acc: 80, what: 'muito bom' },
+        { g: 'B', x: 6, acc: 70, what: 'bom' },
+        { g: 'C', x: 10, acc: 50, what: 'em progresso' },
+    ];
+    function grade(rs, avgMs) {
+        const base = rs.reduce((t, r) => t + par(r.p), 0) / rs.length;
+        const acc = (rs.filter(r => r.ok).length / rs.length) * 100;
+        const sec = avgMs / 1000;
+        const scale = GRADES.map(t => ({ ...t, max: Math.round(base * t.x * 10) / 10 }));
+        const hit = scale.find(t => sec <= t.max && acc >= t.acc);
+        return { g: hit ? hit.g : 'D', what: hit ? hit.what : 'continue treinando', scale };
+    }
+    function cfgPar() {
+        const one = (op) => op === 'add' || op === 'sub' ? (cfg.addLen === 3 ? 3 : 2)
+            : op === 'mul' ? (cfg.level === '2x2' ? 5 : 2.5) : (cfg.level === '2x2' ? 6 : 3);
+        return cfg.ops.reduce((t, o) => t + one(o), 0) / cfg.ops.length;
+    }
+    const scaleHTML = (base, cur) => GRADES.map(t => `<span class="${t.g === cur ? 'on' : ''}"><b class="gl g-${t.g}">${t.g}</b> até ${(Math.round(base * t.x * 10) / 10).toFixed(1)}s · ${t.acc}%+</span>`).join('')
+        + `<span class="${cur === 'D' ? 'on' : ''}"><b class="gl g-D">D</b> acima disso</span>`;
+    const idleEl = $('#idle'), runEl = $('#run'), resEl = $('#res'), histEl = $('#historico'), nav = $('#cfg'), idleScale = $('#idleScale');
+    const qnEl = $('#qn'), dotsEl = $('#dots'), secsEl = $('#secs'), barEl = $('#bar'), barI = barEl.firstElementChild;
+    const stage = $('#stage'), probEl = $('#prob'), ansEl = $('#ans'), msgEl = $('#msg'), inp = $('#inp');
+    const ppBtn = $('#pp'), avgEl = $('#avg'), descEl = $('#desc'), micEl = $('#mic'), micTxt = $('#micTxt'), toastEl = $('#toast');
+    let phase = 'idle';
+    let set = [];
+    let results = [];
+    let qi = 0;
+    let left = LIMIT;
+    let last = performance.now();
+    let feedbackT = 0;
+    let primed = false;
+    const cur = () => set[qi];
+    const RODS = 7;
+    const abEl = $('#abaco');
+    const heaven = [];
+    const earth = [];
+    (() => {
+        const W = RODS * 40 + 16;
+        let s = `<svg viewBox="0 0 ${W} 156" xmlns="http://www.w3.org/2000/svg">`;
+        s += `<rect x="2" y="4" width="${W - 4}" height="148" rx="7" fill="#2c2e31" stroke="#646669" stroke-width="3"/>`;
+        for (let i = 0; i < RODS; i++)
+            s += `<line x1="${28 + i * 40}" y1="6" x2="${28 + i * 40}" y2="150" stroke="#646669" stroke-width="2.5"/>`;
+        s += `<rect x="2" y="50" width="${W - 4}" height="6" fill="#646669"/>`;
+        for (let i = 0; i < RODS; i++) {
+            const x = 28 + i * 40;
+            if ((RODS - 1 - i) % 3 === 0)
+                s += `<circle cx="${x}" cy="53" r="2" fill="#323437"/>`;
+            s += `<ellipse class="bd" data-h="${i}" cx="${x}" cy="22" rx="16" ry="9"/>`;
+            for (let j = 0; j < 4; j++)
+                s += `<ellipse class="bd" data-e="${i}-${j}" cx="${x}" cy="${85 + j * 18}" rx="16" ry="8.5"/>`;
+        }
+        abEl.innerHTML = s + '</svg>';
+        for (let i = 0; i < RODS; i++) {
+            heaven.push(abEl.querySelector(`[data-h="${i}"]`));
+            earth.push([0, 1, 2, 3].map(j => abEl.querySelector(`[data-e="${i}-${j}"]`)));
+        }
+    })();
+    function abacus(v) {
+        const ds = v.slice(-RODS).padStart(RODS, '0');
+        for (let i = 0; i < RODS; i++) {
+            const d = Number(ds[i]);
+            heaven[i].classList.toggle('on', d >= 5);
+            heaven[i].style.transform = d >= 5 ? 'translateY(18px)' : '';
+            earth[i].forEach((b, j) => {
+                const on = j < d % 5;
+                b.classList.toggle('on', on);
+                b.style.transform = on ? 'translateY(-20px)' : '';
+            });
+        }
+    }
+    const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
+    let ptVoice;
+    const pickVoice = () => {
+        if (!synth)
+            return;
+        const vs = synth.getVoices();
+        ptVoice = vs.find(v => v.lang.toLowerCase().startsWith('pt-br')) || vs.find(v => v.lang.toLowerCase().startsWith('pt'));
+    };
+    if (synth) {
+        pickVoice();
+        synth.onvoiceschanged = pickVoice;
+    }
+    const keep = [];
+    let speaking = false, speakT = 0, checkT = 0, warned = false;
+    function warn(msg) { if (!warned) {
+        warned = true;
+        toast(msg);
+    } }
+    let actx = null;
+    function keepAwake() {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC)
+            return;
+        if (!actx) {
+            try {
+                actx = new AC();
+                const osc = actx.createOscillator(), g = actx.createGain();
+                osc.frequency.value = 30;
+                g.gain.value = 0.0005;
+                osc.connect(g).connect(actx.destination);
+                osc.start();
+            }
+            catch {
+                actx = null;
+                return;
+            }
+        }
+        if (actx.state === 'suspended')
+            actx.resume().catch(() => { });
+    }
+    function errorBeep() {
+        keepAwake();
+        if (!actx)
+            return;
+        const t0 = actx.currentTime + 0.01;
+        [[220, 0], [165, 0.12]].forEach(([f, dt]) => {
+            const o = actx.createOscillator(), g = actx.createGain();
+            o.type = 'triangle';
+            o.frequency.value = f;
+            g.gain.setValueAtTime(0.0001, t0 + dt);
+            g.gain.exponentialRampToValueAtTime(0.35, t0 + dt + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.11);
+            o.connect(g).connect(actx.destination);
+            o.start(t0 + dt);
+            o.stop(t0 + dt + 0.13);
+        });
+    }
+    function speak(text, force = false) {
+        if ((!cfg.speak && !force) || !primed)
+            return;
+        keepAwake();
+        if (!synth) {
+            warn('Este navegador não tem leitura em voz. Use o Chrome, o Edge ou o Safari.');
+            return;
+        }
+        clearTimeout(speakT);
+        clearTimeout(checkT);
+        if (synth.speaking || synth.pending)
+            synth.cancel();
+        speakT = window.setTimeout(() => {
+            if (!ptVoice)
+                pickVoice();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'pt-BR';
+            u.rate = 1.1;
+            u.volume = 1;
+            if (ptVoice)
+                u.voice = ptVoice;
+            let started = false;
+            const done = () => { const i = keep.indexOf(u); if (i >= 0)
+                keep.splice(i, 1); setTimeout(() => { speaking = false; }, 150); };
+            u.onstart = () => { started = true; speaking = true; };
+            u.onend = done;
+            u.onerror = (e) => {
+                done();
+                if (e.error === 'not-allowed')
+                    warn('O navegador bloqueou a leitura em voz. Clique na página e tente de novo.');
+                else if (e.error === 'language-unavailable' || e.error === 'voice-unavailable')
+                    warn('Não há voz em português instalada neste aparelho.');
+            };
+            keep.push(u);
+            if (keep.length > 6)
+                keep.shift();
+            synth.resume();
+            synth.speak(u);
+            checkT = window.setTimeout(() => {
+                if (!started && !synth.speaking)
+                    warn('A leitura não tocou. Confira o volume e se o navegador permite som nesta página.');
+            }, 3000);
+            window.setTimeout(() => { if (speaking && !synth.speaking)
+                speaking = false; }, 10000);
+        }, 60);
+    }
+    const hush = () => { clearTimeout(speakT); synth?.cancel(); };
+    const strip = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const WORDS = {
+        zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
+        dez: 10, onze: 11, doze: 12, treze: 13, catorze: 14, quatorze: 14, quinze: 15, dezesseis: 16, dezasseis: 16,
+        dezessete: 17, dezoito: 18, dezenove: 19, vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, cincoenta: 50,
+        sessenta: 60, setenta: 70, oitenta: 80, noventa: 90, cem: 100, cento: 100, duzentos: 200, duzentas: 200,
+        trezentos: 300, quatrocentos: 400, quinhentos: 500, seiscentos: 600, setecentos: 700, oitocentos: 800, novecentos: 900,
+    };
+    function parseNum(raw) {
+        const t = strip(raw);
+        const m = t.replace(/(\d)[.\s](?=\d{3}\b)/g, '$1').match(/\d+/);
+        if (m)
+            return Number(m[0]);
+        let total = 0, part = 0, hit = false;
+        for (const w of t.split(/[\s-]+/)) {
+            if (w === 'e' || !w)
+                continue;
+            if (w === 'mil') {
+                part = (part || 1) * 1000;
+                total += part;
+                part = 0;
+                hit = true;
+                continue;
+            }
+            if (w in WORDS) {
+                part += WORDS[w];
+                hit = true;
+            }
+            else if (hit)
+                break;
+        }
+        return hit ? total + part : null;
+    }
+    function command(raw) {
+        const t = strip(raw);
+        if (/desligar (o )?microfone/.test(t)) {
+            stopListen();
+            toast('microfone desligado');
+            return true;
+        }
+        if (/\b(play|comecar|comeca|iniciar|inicia|jogar|vamos)\b/.test(t)) {
+            if (phase === 'idle' || phase === 'done')
+                play();
+            else if (phase === 'pause')
+                resume();
+            return true;
+        }
+        if (/\bpaus/.test(t)) {
+            pause();
+            return true;
+        }
+        if (/continu|retom|voltar/.test(t)) {
+            resume();
+            return true;
+        }
+        if (/pular|proxim|passa/.test(t)) {
+            skip();
+            return true;
+        }
+        if (/repet|de novo|outra vez/.test(t)) {
+            if (phase === 'run')
+                speak(sayP(cur()), true);
+            return true;
+        }
+        if (/\b(parar|pare|encerrar|sair)\b/.test(t)) {
+            stopSession();
+            return true;
+        }
+        return false;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let rec = null;
+    let consumed = false;
+    function startListen() {
+        if (!SR) {
+            toast('Reconhecimento de voz não disponível neste navegador. Use o Chrome ou o Edge.');
+            cfg.listen = false;
+            syncCfg();
+            return;
+        }
+        if (!rec) {
+            rec = new SR();
+            rec.lang = 'pt-BR';
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++)
+                onVoice(String(e.results[i][0].transcript), Boolean(e.results[i].isFinal)); };
+            rec.onerror = (e) => {
+                if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+                    cfg.listen = false;
+                    saveCfg();
+                    syncCfg();
+                    micEl.hidden = true;
+                    toast('O microfone foi bloqueado aqui. Permita o microfone ou abra o arquivo sessao.html no Chrome/Edge.');
+                }
+            };
+            rec.onend = () => { if (cfg.listen)
+                setTimeout(() => { try {
+                    rec.start();
+                }
+                catch { } }, 250);
+            else
+                micEl.hidden = true; };
+        }
+        cfg.listen = true;
+        saveCfg();
+        syncCfg();
+        micEl.hidden = false;
+        micTxt.textContent = '';
+        try {
+            rec.start();
+        }
+        catch { }
+    }
+    function stopListen() {
+        cfg.listen = false;
+        saveCfg();
+        syncCfg();
+        micEl.hidden = true;
+        try {
+            rec?.stop();
+        }
+        catch { }
+    }
+    function onVoice(text, final) {
+        micTxt.textContent = '“' + text.trim() + '”';
+        if (consumed) {
+            if (final)
+                consumed = false;
+            return;
+        }
+        if (speaking)
+            return;
+        if (final && command(text))
+            return;
+        if (phase !== 'run')
+            return;
+        const n = parseNum(text);
+        if (n === null)
+            return;
+        if (n === cur().answer) {
+            setTyped(String(n));
+            resolve(String(n));
+            if (!final)
+                consumed = true;
+        }
+        else if (final)
+            resolve(String(n));
+    }
+    function view(v) {
+        histEl.hidden = v !== 'hist';
+        document.body.classList.toggle('in-hist', v === 'hist');
+        idleEl.hidden = v !== 'idle';
+        runEl.hidden = v !== 'run';
+        resEl.hidden = v !== 'res';
+        document.body.classList.toggle('running', phase === 'run' || phase === 'feedback');
+    }
+    function renderDots() {
+        dotsEl.innerHTML = Array.from({ length: Q }, (_, i) => {
+            const r = results[i];
+            const c = r ? (r.ok ? 'ok' : 'x') : i === qi ? 'cur' : '';
+            return `<i class="${c}"></i>`;
+        }).join('');
+    }
+    function renderClock() {
+        const s = Math.max(0, left / 1000);
+        const low = s <= 5;
+        secsEl.innerHTML = `${Math.ceil(s)}<small>s</small>`;
+        secsEl.classList.toggle('low', low);
+        barEl.classList.toggle('low', low);
+        barI.style.width = `${(left / LIMIT) * 100}%`;
+    }
+    function setTyped(v) {
+        inp.value = v;
+        const want = String(cur().answer);
+        ansEl.className = v.length >= want.length && v !== want ? 'bad' : '';
+        ansEl.innerHTML = `<span class="eq">=</span>${v}<span class="caret"></span>`;
+        abacus(v);
+    }
+    function setPP() {
+        const paused = phase === 'pause';
+        ppBtn.innerHTML = paused ? `${ICON.play}<span>continuar</span>` : `${ICON.pause}<span>pausar</span>`;
+        ppBtn.title = paused ? 'Continuar (esc)' : 'Pausar (esc)';
+    }
+    function renderAvg() {
+        if (!history.length) {
+            avgEl.innerHTML = 'nenhuma sessão ainda';
+            return;
+        }
+        const pct = Math.round(history.reduce((s, h) => s + h.ok / h.n, 0) / history.length * 100);
+        const contas = history.reduce((t, h) => t + h.n, 0);
+        avgEl.innerHTML = `média geral <b>${pct}%</b> · <b>${history.length}</b> ${history.length === 1 ? 'sessão' : 'sessões'} · <b>${contas}</b> contas`;
+    }
+    const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+    const cfgLabel = (h) => {
+        if (!h.ops)
+            return '—';
+        const parts = [];
+        const as = h.ops.filter(o => o === 'add' || o === 'sub').map(o => SYM[o]).join(' ');
+        const md = h.ops.filter(o => o === 'mul' || o === 'div').map(o => SYM[o]).join(' ');
+        if (as)
+            parts.push(`${as} ${h.a ?? 2} alg.`);
+        if (md)
+            parts.push(`${md} ${h.l === '2x2' ? '2×2' : '2×1'}`);
+        return parts.join(' · ');
+    };
+    let histMore = 20, histFrom = 'idle';
+    function openHist() {
+        if (phase === 'run' || phase === 'feedback' || phase === 'pause')
+            return;
+        histFrom = phase === 'done' ? 'res' : 'idle';
+        histMore = 20;
+        renderHist();
+        view('hist');
+    }
+    function closeHist() { view(histFrom); }
+    function renderHist() {
+        if (!history.length) {
+            histEl.innerHTML = `<div class="hhead"><h2>histórico</h2><button class="lnk" data-h="back">voltar</button></div><p class="empty">Nenhuma sessão ainda. Termine uma sessão de 10 questões e ela aparece aqui.</p>`;
+            return;
+        }
+        const now = new Date(), todayK = dayKey(now);
+        const byDay = new Map();
+        for (const h of history) {
+            const k = dayKey(new Date(h.d));
+            (byDay.get(k) ?? byDay.set(k, []).get(k)).push(h);
+        }
+        const sum = (a, f) => a.reduce((t, h) => t + f(h), 0);
+        const contas = sum(history, h => h.n), acertos = sum(history, h => h.ok);
+        const tempo = sum(history, h => h.ms * h.n) / 1000;
+        const todays = byDay.get(todayK) ?? [];
+        const start7 = new Date(now);
+        start7.setHours(0, 0, 0, 0);
+        start7.setDate(start7.getDate() - 6);
+        const week = history.filter(h => new Date(h.d) >= start7);
+        let streak = 0;
+        const c = new Date(now);
+        c.setHours(12);
+        if (!byDay.has(todayK))
+            c.setDate(c.getDate() - 1);
+        while (byDay.has(dayKey(c))) {
+            streak++;
+            c.setDate(c.getDate() - 1);
+        }
+        let best = 0, run = 0;
+        const keys = [...byDay.keys()].sort();
+        for (let i = 0; i < keys.length; i++) {
+            const prev = i ? new Date(keys[i - 1] + 'T12:00') : null, curD = new Date(keys[i] + 'T12:00');
+            run = prev && Math.round((curD.getTime() - prev.getTime()) / 864e5) === 1 ? run + 1 : 1;
+            best = Math.max(best, run);
+        }
+        const fmtT = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}min` : s >= 60 ? `${Math.round(s / 60)}min` : `${Math.round(s)}s`;
+        const WEEKS = 15, end = new Date(now);
+        end.setHours(12, 0, 0, 0);
+        const first = new Date(end);
+        first.setDate(first.getDate() - first.getDay() - (WEEKS - 1) * 7);
+        let cells = '';
+        for (let w = 0; w < WEEKS; w++)
+            for (let d = 0; d < 7; d++) {
+                const day = new Date(first);
+                day.setDate(first.getDate() + w * 7 + d);
+                if (day > end) {
+                    cells += '<i class="fut"></i>';
+                    continue;
+                }
+                const n = byDay.get(dayKey(day))?.length ?? 0;
+                const lv = n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : n <= 5 ? 3 : 4;
+                cells += `<i class="l${lv}" title="${day.toLocaleDateString('pt-BR')}: ${plural(n, 'sessão', 'sessões')}"></i>`;
+            }
+        const graded = history.filter(h => h.g);
+        const gc = ['SS', 'S', 'A', 'B', 'C', 'D'].map(g => ({ g, n: graded.filter(h => h.g === g).length }));
+        const gmax = Math.max(1, ...gc.map(x => x.n));
+        const order = ['D', 'C', 'B', 'A', 'S', 'SS'];
+        const bestG = graded.length ? graded.reduce((b, h) => order.indexOf(h.g) > order.indexOf(b) ? h.g : b, 'D') : '—';
+        const rows = history.slice().reverse().slice(0, histMore).map(h => {
+            const d = new Date(h.d);
+            return `<tr><td>${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} <span class="dim">${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
+        <td>${cfgLabel(h)}</td><td class="r">${h.ok}/${h.n}</td><td class="r">${(h.ms / 1000).toFixed(1)}s</td><td class="r">${h.g ? `<b class="gl g-${h.g}">${h.g}</b>` : '<span class="dim">—</span>'}</td></tr>`;
+        }).join('');
+        histEl.innerHTML = `
+      <div class="hhead"><h2>histórico</h2><button class="lnk" data-h="back">voltar <kbd>esc</kbd></button></div>
+      <div class="kpis">
+        <div>sessões feitas<b>${history.length}</b></div>
+        <div>contas feitas<b>${contas}</b><span>${acertos} certas · ${Math.round(acertos / contas * 100)}%</span></div>
+        <div>sessões hoje<b>${todays.length}</b><span>${sum(todays, h => h.n)} contas</span></div>
+        <div>sessões em 7 dias<b>${week.length}</b><span>${sum(week, h => h.n)} contas</span></div>
+        <div>dias seguidos<b>${streak}</b><span>recorde ${best}</span></div>
+        <div>tempo treinado<b>${fmtT(tempo)}</b><span>melhor nota ${bestG}</span></div>
+      </div>
+      <div class="hgrid">
+        <div class="card"><h3>atividade · últimas ${WEEKS} semanas</h3><div class="heat">${cells}</div>
+          <div class="legend">menos <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> mais</div></div>
+        <div class="card"><h3>notas</h3>${graded.length ? `<div class="gbars">${gc.map(x => `<div><b class="gl g-${x.g}">${x.g}</b><span class="track"><i style="width:${x.n / gmax * 100}%"></i></span><em>${x.n}</em></div>`).join('')}</div>` : '<p class="empty">As notas aparecem nas próximas sessões.</p>'}</div>
+      </div>
+      <div class="card"><h3>sessões</h3>
+        <div class="tbl"><table><thead><tr><th>quando</th><th>contas</th><th class="r">acertos</th><th class="r">tempo médio</th><th class="r">nota</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="tacts">${history.length > histMore ? `<button class="lnk" data-h="more">mostrar mais (${history.length - histMore})</button>` : ''}<button class="lnk danger" data-h="clear">apagar histórico</button></div>
+      </div>`;
+    }
+    histEl.addEventListener('click', e => {
+        const b = e.target.closest('[data-h]');
+        if (!b)
+            return;
+        if (b.dataset.h === 'back')
+            closeHist();
+        else if (b.dataset.h === 'more') {
+            histMore += 30;
+            renderHist();
+        }
+        else if (b.dataset.h === 'clear') {
+            if (!confirm(`Apagar as ${history.length} sessões do histórico? Isso não pode ser desfeito.`))
+                return;
+            history.splice(0);
+            store.set('sessoes', history);
+            renderAvg();
+            renderHist();
+            toast('histórico apagado');
+        }
+    });
+    avgEl.addEventListener('click', openHist);
+    function renderDesc() {
+        const parts = [];
+        if (cfg.ops.includes('add') || cfg.ops.includes('sub')) {
+            parts.push([cfg.ops.includes('add') ? 'soma' : '', cfg.ops.includes('sub') ? 'subtração' : ''].filter(Boolean).join(' e ') + ` com ${cfg.addLen} algarismos`);
+        }
+        const md = [cfg.ops.includes('mul') ? 'multiplicação' : '', cfg.ops.includes('div') ? 'divisão' : ''].filter(Boolean).join(' e ');
+        if (md)
+            parts.push(`${md} ${cfg.level === '2x1' ? 'com 2 algarismos × 1' : 'com 2 algarismos × 2'}`);
+        descEl.textContent = 'Contas aleatórias: ' + parts.join(' · ') + '. No final, a sua média de acertos e uma nota.';
+        idleScale.innerHTML = scaleHTML(cfgPar());
+    }
+    function play() {
+        primed = true;
+        clearTimeout(feedbackT);
+        set = makeSet();
+        results = [];
+        qi = 0;
+        startQuestion();
+    }
+    function startQuestion() {
+        phase = 'run';
+        left = LIMIT;
+        last = performance.now();
+        view('run');
+        qnEl.innerHTML = `questão <b>${qi + 1}</b>/${Q}`;
+        probEl.innerHTML = fmtHTML(cur());
+        msgEl.textContent = '';
+        msgEl.className = '';
+        stage.classList.remove('paused');
+        setTyped('');
+        renderDots();
+        renderClock();
+        setPP();
+        focus();
+        speak(sayP(cur()));
+    }
+    function resolve(given, timeout = false) {
+        if (phase !== 'run')
+            return;
+        const p = cur();
+        const ok = !timeout && given !== '' && Number(given) === p.answer;
+        results.push({ p, given: given || '—', ok, ms: Math.min(LIMIT, LIMIT - left), timeout });
+        phase = 'feedback';
+        renderDots();
+        inp.value = '';
+        if (ok) {
+            msgEl.textContent = 'certo!';
+            msgEl.className = 'good';
+            void ansEl.offsetWidth;
+            ansEl.classList.add('ok');
+        }
+        else {
+            ansEl.className = '';
+            ansEl.innerHTML = `<span class="eq">=</span>${given ? `<s>${given}</s>` : ''}<span class="fix">${p.answer}</span>`;
+            abacus(String(p.answer));
+            msgEl.textContent = timeout ? 'tempo esgotado' : given ? 'errado' : 'pulada';
+            msgEl.className = '';
+            if (given || timeout)
+                errorBeep();
+            if (timeout)
+                window.setTimeout(() => speak(`tempo. ${p.answer}`), 250);
+        }
+        feedbackT = window.setTimeout(next, ok ? 550 : 1500);
+    }
+    function next() {
+        qi++;
+        if (qi >= Q)
+            finish();
+        else
+            startQuestion();
+    }
+    function pause() {
+        if (phase !== 'run')
+            return;
+        phase = 'pause';
+        stage.classList.add('paused');
+        document.body.classList.remove('running');
+        hush();
+        setPP();
+        inp.blur();
+    }
+    function resume() {
+        if (phase !== 'pause')
+            return;
+        phase = 'run';
+        last = performance.now();
+        stage.classList.remove('paused');
+        document.body.classList.add('running');
+        setPP();
+        focus();
+        speak(sayP(cur()));
+    }
+    const skip = () => { if (phase === 'run')
+        resolve(''); };
+    function stopSession() {
+        if (phase === 'idle')
+            return;
+        clearTimeout(feedbackT);
+        hush();
+        phase = 'idle';
+        view('idle');
+        toast('sessão encerrada');
+    }
+    function finish() {
+        phase = 'done';
+        hush();
+        const ok = results.filter(r => r.ok).length;
+        const ms = results.reduce((s, r) => s + r.ms, 0) / results.length;
+        const nota = grade(results, ms);
+        history.push({ d: new Date().toISOString(), ok, n: Q, ms, g: nota.g, ops: [...cfg.ops], a: cfg.addLen, l: cfg.level, to: results.filter(r => r.timeout).length });
+        if (history.length > 500)
+            history.splice(0, history.length - 500);
+        store.set('sessoes', history);
+        renderAvg();
+        renderResults(ok, ms, nota);
+        view('res');
+        speak(`Fim da sessão. ${ok} de ${Q}. Média de ${Math.round(ok / Q * 100)} por cento. Nota ${nota.g.split('').join(' ')}.`);
+    }
+    function renderResults(ok, avgMs, nota) {
+        const pct = Math.round((ok / Q) * 100);
+        const okRes = results.filter(r => r.ok);
+        const fastest = okRes.length ? Math.min(...okRes.map(r => r.ms)) / 1000 : 0;
+        const timeouts = results.filter(r => r.timeout).length;
+        const allPct = Math.round(history.reduce((s, h) => s + h.ok / h.n, 0) / history.length * 100);
+        const today = new Date().toDateString();
+        const todays = history.filter(h => new Date(h.d).toDateString() === today);
+        const todayPct = Math.round(todays.reduce((s, h) => s + h.ok / h.n, 0) / todays.length * 100);
+        const prevBest = Math.max(0, ...history.slice(0, -1).map(h => h.ok));
+        const recent = history.slice(-14);
+        const list = results.map((r, i) => `<div class="${r.ok ? 'ok' : 'x'}"><span class="n">${i + 1}</span><span class="c">${fmt(r.p)} = <b>${r.p.answer}</b>${r.ok ? '' : ` <em>(${r.timeout ? 'tempo' : r.given})</em>`}</span><span class="t">${(r.ms / 1000).toFixed(1)}s</span></div>`).join('');
+        resEl.innerHTML = `
+      <div class="rtop">
+        <div class="big">média de acertos<b>${pct}%</b><span>${ok} de ${Q} questões</span></div>
+        <div class="grade g-${nota.g}" title="${nota.what}">nota<b>${nota.g}</b><span>${nota.what}</span></div>
+        <div class="row">
+          <div>tempo médio<b>${(avgMs / 1000).toFixed(1)}s</b></div>
+          <div>mais rápida<b>${okRes.length ? fastest.toFixed(1) + 's' : '—'}</b></div>
+          <div>tempo esgotado<b>${timeouts}</b></div>
+          <div>melhor sessão<b>${Math.max(prevBest, ok)}/${Q}${ok > prevBest && history.length > 1 ? ' novo!' : ''}</b></div>
+        </div>
+      </div>
+      <div class="scale" aria-label="escala de notas desta sessão">${scaleHTML(results.reduce((t, r) => t + par(r.p), 0) / results.length, nota.g)}</div>
+      <div class="list">${list}</div>
+      <div class="hist">
+        <div>
+          <h2>média geral: ${allPct}% em ${history.length} ${history.length === 1 ? 'sessão' : 'sessões'}</h2>
+          <p>hoje: ${todays.length} ${todays.length === 1 ? 'sessão' : 'sessões'}, média de ${todayPct}%</p>
+        </div>
+        <div class="spark" title="últimas sessões">${recent.map((h, i) => `<i class="${i === recent.length - 1 ? 'last' : ''}" style="height:${Math.max(4, (h.ok / h.n) * 66)}px" title="${h.ok}/${h.n}"></i>`).join('')}</div>
+      </div>
+      <div class="acts"><button id="again">${ICON.play}jogar de novo</button><button id="seeHist">ver histórico</button></div>`;
+        $('#again').addEventListener('click', play);
+        $('#seeHist').addEventListener('click', openHist);
+    }
+    window.setInterval(() => {
+        const now = performance.now();
+        if (phase === 'run') {
+            left -= now - last;
+            renderClock();
+            if (left <= 0) {
+                left = 0;
+                renderClock();
+                resolve(inp.value.replace(/\D/g, ''), true);
+            }
+        }
+        last = now;
+    }, 100);
+    function syncCfg() {
+        nav.querySelectorAll('[data-op]').forEach(b => { const on = cfg.ops.includes(b.dataset.op); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        nav.querySelectorAll('[data-v]').forEach(b => { const on = cfg.level === b.dataset.v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        nav.querySelectorAll('[data-a]').forEach(b => { const on = String(cfg.addLen) === b.dataset.a; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        nav.querySelectorAll('[data-t]').forEach(b => { const on = Boolean(cfg[b.dataset.t]); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        renderDesc();
+    }
+    nav.addEventListener('click', e => {
+        const b = e.target.closest('button');
+        if (!b)
+            return;
+        primed = true;
+        if (b.dataset.op) {
+            const op = b.dataset.op;
+            if (cfg.ops.includes(op)) {
+                if (cfg.ops.length > 1)
+                    cfg.ops = cfg.ops.filter(o => o !== op);
+                else
+                    toast('deixe pelo menos uma operação');
+            }
+            else
+                cfg.ops = [...cfg.ops, op];
+        }
+        else if (b.dataset.v)
+            cfg.level = b.dataset.v;
+        else if (b.dataset.a)
+            cfg.addLen = Number(b.dataset.a);
+        else if (b.dataset.t === 'listen') {
+            if (cfg.listen)
+                stopListen();
+            else
+                startListen();
+            return;
+        }
+        else if (b.dataset.t === 'speak') {
+            warned = false;
+            cfg.speak = !cfg.speak;
+            toast(cfg.speak ? 'leitura ligada' : 'leitura desligada');
+            if (cfg.speak)
+                speak('leitura ligada');
+            else
+                hush();
+        }
+        saveCfg();
+        syncCfg();
+    });
+    function focus() { if (phase === 'run')
+        inp.focus({ preventScroll: true }); }
+    $('#playBig').addEventListener('click', play);
+    ppBtn.addEventListener('click', () => (phase === 'pause' ? resume() : pause()));
+    $('#skip').addEventListener('click', skip);
+    $('#stop').addEventListener('click', stopSession);
+    stage.addEventListener('click', () => { if (phase === 'pause')
+        resume();
+    else
+        focus(); });
+    inp.addEventListener('focus', () => stage.classList.remove('blur'));
+    inp.addEventListener('blur', () => { if (phase === 'run')
+        stage.classList.add('blur'); });
+    for (const ev of ['pointerdown', 'keydown'])
+        document.addEventListener(ev, () => { primed = true; if (cfg.speak)
+            keepAwake(); });
+    inp.addEventListener('input', () => {
+        if (phase !== 'run') {
+            inp.value = '';
+            return;
+        }
+        const v = inp.value.replace(/\D/g, '').slice(0, 9);
+        setTyped(v);
+        if (v === String(cur().answer))
+            resolve(v);
+    });
+    document.addEventListener('keydown', e => {
+        const k = e.key;
+        if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'm') {
+            e.preventDefault();
+            if (cfg.listen)
+                stopListen();
+            else
+                startListen();
+            return;
+        }
+        if (!histEl.hidden) {
+            if (k === 'Escape' || k.toLowerCase() === 'h') {
+                e.preventDefault();
+                closeHist();
+            }
+            return;
+        }
+        if (k.toLowerCase() === 'h' && (phase === 'idle' || phase === 'done') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            openHist();
+            return;
+        }
+        if (k === 'Tab') {
+            e.preventDefault();
+            play();
+            return;
+        }
+        if (phase === 'idle' || phase === 'done') {
+            if (k === 'Enter' || k === ' ') {
+                e.preventDefault();
+                play();
+            }
+            return;
+        }
+        if (k === 'Escape') {
+            e.preventDefault();
+            if (phase === 'run')
+                pause();
+            else
+                resume();
+            return;
+        }
+        if (phase === 'pause') {
+            if (k === 'Enter' || k === ' ') {
+                e.preventDefault();
+                resume();
+            }
+            return;
+        }
+        if (phase !== 'run')
+            return;
+        if (document.activeElement !== inp && /^\d$/.test(k))
+            focus();
+        if (k === 'Enter' || k === ' ') {
+            e.preventDefault();
+            const v = inp.value.replace(/\D/g, '');
+            if (v)
+                resolve(v);
+        }
+    });
+    document.addEventListener('mousemove', () => { if (phase === 'run')
+        document.body.classList.remove('running'); });
+    inp.addEventListener('keydown', () => { if (phase === 'run')
+        document.body.classList.add('running'); });
+    let toastT = 0;
+    function toast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastT);
+        toastT = window.setTimeout(() => toastEl.classList.remove('show'), 3800);
+    }
+    syncCfg();
+    renderAvg();
+    setPP();
+    view('idle');
+    if (cfg.listen)
+        startListen();
+})();
+
+</script>
+</body>
+</html>
