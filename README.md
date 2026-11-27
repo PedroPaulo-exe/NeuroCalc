@@ -7,7 +7,15 @@ Abra `dist/soroban.html` no **Chrome** ou no **Edge**. A primeira conta (soma, 2
 Para a voz funcionar, permita o microfone quando o navegador pedir. Se o microfone não funcionar com o arquivo aberto direto,
 sirva a pasta: `npx serve dist` e abra http://localhost:3000/soroban.html
 
-## Atalhos
+## Sessão (página separada: `dist/sessao.html`)
+- Botão de play: 10 questões, 40 segundos por questão; se o tempo acabar, conta como erro e mostra a resposta.
+- Contas aleatórias: soma e subtração com 2 ou 3 algarismos; multiplicação e divisão com 2 algarismos
+  (2 × 1 alg. por padrão, ou 2 × 2 alg.). A divisão é sempre exata e o resultado tem 2 algarismos.
+- Pausar (esc), pular e parar. No fim: média de acertos, tempo médio, lista das 10 contas e média geral de todas as sessões.
+- Voz: "começar", "pausar", "continuar", "pular", "repetir", "parar" e a resposta falada.
+- Código: `src/sessao.ts` + `src/sessao.html`.
+
+## Atalhos (treino livre)
 - `tab` reiniciar · `enter`/`espaço` confirmar · `esc` pular · `ctrl+m` liga/desliga o microfone
 - A resposta certa avança sozinha. Clique em "hoje …" no topo para mudar a meta diária (25/50/100/200).
 
